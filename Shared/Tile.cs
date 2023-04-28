@@ -1,5 +1,8 @@
 ﻿namespace CentrED;
 
+public delegate void TileIdChanged<in T>(T tile, ushort newId) where T : Tile;
+public delegate void TilePosChanged<in T>(T tile, ushort newX, ushort newY) where T : Tile;
+public delegate void TileZChanged<in T>(T tile, sbyte newZ) where T : Tile;
 public abstract class Tile<TBlock> : Tile where TBlock : WorldBlock  {
     private bool _locked;
     private TBlock? _owner;
@@ -69,17 +72,18 @@ public abstract class Tile<TBlock> : Tile where TBlock : WorldBlock  {
     }
 }
 
-public abstract class Tile : IComparable<Tile>  {
-    protected ushort _tileId;
+public abstract class Tile : IComparable<Tile> {
+    protected ushort _id;
     protected ushort _x;
     protected ushort _y;
     protected sbyte _z;
 
-    public virtual ushort TileId {
-        get => _tileId;
+    public virtual ushort Id {
+        get => _id;
         set {
-            if (_tileId != value) {
-                _tileId = value;
+            if (_id != value) {
+                // OnTileIdChanged(value);
+                _id = value;
                 DoChanged();
             }
         }
@@ -89,6 +93,7 @@ public abstract class Tile : IComparable<Tile>  {
         get => _x;
         set {
             if (_x != value) {
+                // OnTilePosChanged(value, _y);
                 _x = value;
                 DoChanged();
             }
@@ -99,6 +104,7 @@ public abstract class Tile : IComparable<Tile>  {
         get => _y;
         set {
             if (_y != value) {
+                // OnTilePosChanged(_x, value);
                 _y = value;
                 DoChanged();
             }
@@ -109,6 +115,7 @@ public abstract class Tile : IComparable<Tile>  {
         get => _z;
         set {
             if (_z != value) {
+                // OnTileZChanged(value);
                 _z = value;
                 DoChanged();
             }
@@ -136,16 +143,21 @@ public abstract class Tile : IComparable<Tile>  {
         return PrioritySolver - other.PrioritySolver;
     }
 
-    public void UpdatePos(ushort x, ushort y, sbyte z) {
-        _x = x;
-        _y = y;
-        _z = z;
+    public void UpdatePos(ushort newX, ushort newY, sbyte newZ) {
+        if(_x != newX || _y != newY)
+            // OnTilePosChanged(newX, newY);
+        _x = newX;
+        _y = newY;
+        if(_z != newZ)
+            // OnTileZChanged(newZ);
+        _z = newZ;
         DoChanged();
     }
 
     public virtual void Delete() {
         DoChanged();
     }
+    
 
     protected abstract void DoChanged();
 

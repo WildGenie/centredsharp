@@ -5,21 +5,13 @@ using CentrED.Utility;
 
 namespace CentrED.Server;
 
-public partial class Landscape {
+public sealed partial class Landscape : BaseLandscape {
     public ushort GetBlockId(ushort x, ushort y) {
         return (ushort)(x / 8 * Height + y / 8);
     }
-
-    public static ushort GetTileId(ushort x, ushort y) {
-        return (ushort)(y % 8 * 8 + x % 8);
-    }
-
+    
     public Landscape(string mapPath, string staticsPath, string staidxPath, string tileDataPath, string radarcolPath,
-        ushort width, ushort height, out bool valid) {
-        Width = width;
-        Height = height;
-        CellWidth = (ushort)(Width * 8);
-        CellHeight = (ushort)(Height * 8);
+        ushort width, ushort height, out bool valid) : base(width, height) {
         
         Logger.LogInfo("Loading Map");
         if (!File.Exists(mapPath)) {
@@ -60,7 +52,7 @@ public partial class Landscape {
             _tileData = File.Open(tileDataPath, FileMode.Open, FileAccess.ReadWrite, FileShare.Read);
             TileDataProvider = new TileDataProvider(_tileData, true);
             Logger.LogInfo("Creating Cache");
-            _blockCache = new BlockCache(OnRemovedCachedObject);
+            OnFreeBlock = OnRemovedCachedObject;
 
             Logger.LogInfo("Creating RadarMap");
             _radarMap = new RadarMap(this, _mapReader, _staidxReader, _staticsReader, radarcolPath);
@@ -105,11 +97,7 @@ public partial class Landscape {
         _staidx.Close();
         _tileData.Close();
     }
-
-    public ushort Width { get; }
-    public ushort Height { get; }
-    public ushort CellWidth { get; }
-    public ushort CellHeight { get; }
+    
     private readonly FileStream _map;
     private readonly FileStream _statics;
     private readonly FileStream _staidx;
@@ -140,12 +128,7 @@ public partial class Landscape {
         if (block.StaticBlock.Changed)
             SaveBlock(block.StaticBlock);
     }
-
-    internal void AssertBlockCoords(ushort x, ushort y) {
-        if (x >= Width || y >= Height) 
-            throw new ArgumentException($"Coords out of range. Size: {Width}x{Height}, Requested: {x},{y}");
-    }
-
+    
     internal void AssertStaticTileId(ushort tileId) {
         if(tileId >= TileDataProvider.StaticTiles.Length) 
             throw new ArgumentException($"Invalid static tile id {tileId}");
@@ -161,16 +144,6 @@ public partial class Landscape {
             throw new ArgumentException($"Invalid hue {hue}");
     }
     
-    public LandTile GetLandTile(ushort x, ushort y) {
-        var block = GetLandBlock((ushort)(x / 8), (ushort)(y / 8));
-        return block.Tiles[GetTileId(x, y)];
-    }
-
-    public ReadOnlyCollection<StaticTile> GetStaticList(ushort x, ushort y) {
-        var block = GetStaticBlock((ushort)(x / 8), (ushort)(y / 8));
-        return block.CellItems(GetTileId(x, y));
-    }
-
     public HashSet<NetState<CEDServer>> GetBlockSubscriptions(ushort x, ushort y) {
         AssertBlockCoords(x, y);
         var key = GetBlockNumber(x, y);
@@ -184,23 +157,7 @@ public partial class Landscape {
         _blockSubscriptions.Add(key, result);
         return result;
     }
-
-    public LandBlock GetLandBlock(ushort x, ushort y) {
-        return GetBlock(x, y).LandBlock;
-    }
-
-    public StaticBlock GetStaticBlock(ushort x, ushort y) {
-        return GetBlock(x, y).StaticBlock;
-    }
-
-    public Block GetBlock(ushort x, ushort y) {
-        AssertBlockCoords(x, y);
-
-        var block = _blockCache.Get(x, y);
-
-        return block ?? LoadBlock(x, y);
-    }
-
+    
     public long GetBlockNumber(ushort x, ushort y) {
         return x * Height + y;
     }
@@ -216,9 +173,9 @@ public partial class Landscape {
         return GetBlockNumber(x, y) * 12;
     }
 
-    private Block LoadBlock(ushort x, ushort y) {
+    protected override Block LoadBlock(ushort x, ushort y) {
         _map.Position = GetMapOffset(x, y);
-        var map = new LandBlock(_mapReader, x, y);
+        var map = new LandBlock(x: x, y: y, reader: _mapReader);
         
         _staidx.Position = GetStaidxOffset(x, y);
         var index = new GenericIndex(_staidxReader);
@@ -232,7 +189,7 @@ public partial class Landscape {
     public void UpdateRadar(NetState<CEDServer> ns, ushort x, ushort y) {
         if (x % 8 != 0 || y % 8 != 0) return;
  
-        var staticTiles = GetStaticList(x, y);
+        var staticTiles = GetStaticTiles(x, y);
 
         var tiles = new List<Tile>();
         var mapTile = GetLandTile(x, y);
@@ -243,8 +200,8 @@ public partial class Landscape {
 
         for (var i = 0; i < staticTiles.Count; i++) {
             var staticTile = staticTiles[i];
-            AssertStaticTileId(staticTile.TileId);
-            staticTile.UpdatePriorities(TileDataProvider.StaticTiles[staticTile.TileId], i);
+            AssertStaticTileId(staticTile.Id);
+            staticTile.UpdatePriorities(TileDataProvider.StaticTiles[staticTile.Id], i);
             tiles.Add(staticTile);
         }
 
@@ -253,7 +210,7 @@ public partial class Landscape {
         if (tiles.Count <= 0) return;
 
         var tile = tiles.Last();
-        _radarMap.Update(ns, (ushort)(x / 8), (ushort)(y / 8), (ushort)(tile.TileId + (tile is StaticTile ? 0x4000 : 0)));
+        _radarMap.Update(ns, (ushort)(x / 8), (ushort)(y / 8), (ushort)(tile.Id + (tile is StaticTile ? 0x4000 : 0)));
     }
 
     public sbyte GetLandAlt(ushort x, ushort y) {
@@ -277,8 +234,8 @@ public partial class Landscape {
     public void SortStaticList(List<StaticTile> staticTiles) {
         for (int i = 0; i < staticTiles.Count; i++) {
             var staticTile = staticTiles[i];
-            AssertStaticTileId(staticTile.TileId);
-            staticTile.UpdatePriorities(TileDataProvider.StaticTiles[staticTile.TileId], i + 1);
+            AssertStaticTileId(staticTile.Id);
+            staticTile.UpdatePriorities(TileDataProvider.StaticTiles[staticTile.Id], i + 1);
         }
 
         staticTiles.Sort();

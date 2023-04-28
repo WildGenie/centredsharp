@@ -25,9 +25,12 @@ public class ConnectionHandling {
         var password = reader.ReadStringNull();
         var account = ns.Parent.GetAccount(username);
         if (account == null) {
-            ns.LogDebug($"Invalid account specified: {username}");
-            ns.Send(new LoginResponsePacket(LoginState.InvalidUser));
-            ns.Disconnect();
+            account = new Account(username, password, AccessLevel.Normal);
+            ns.Parent.Config.Accounts.Add(account);
+            ns.LogInfo("Created user " + username);
+            // ns.LogDebug($"Invalid account specified: {username}");
+            // ns.Send(new LoginResponsePacket(LoginState.InvalidUser));
+            // ns.Disconnect();
         }
         else if (account.AccessLevel <= AccessLevel.None) {
             ns.LogDebug("Access Denied");

@@ -17,7 +17,7 @@ public struct StaticInfo {
     public ushort TileId { get; }
     public ushort Hue { get; }
         
-    public bool Match(StaticTile s) => s.Z == Z && s.TileId == TileId && s.Hue == Hue;
+    public bool Match(StaticTile s) => s.Z == Z && s.Id == TileId && s.Hue == Hue;
 
     public void Serialize(BinaryWriter writer) {
         writer.Write(X);
