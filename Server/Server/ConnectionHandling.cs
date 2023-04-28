@@ -25,6 +25,7 @@ public class ConnectionHandling {
         var password = reader.ReadStringNull();
         var account = ns.Parent.GetAccount(username);
         if (account == null) {
+            //Revert me
             account = new Account(username, password, AccessLevel.Normal);
             ns.Parent.Config.Accounts.Add(account);
             ns.LogInfo("Created user " + username);
@@ -32,7 +33,8 @@ public class ConnectionHandling {
             // ns.Send(new LoginResponsePacket(LoginState.InvalidUser));
             // ns.Disconnect();
         }
-        else if (account.AccessLevel <= AccessLevel.None) {
+        // else if (account.AccessLevel <= AccessLevel.None) {
+        if (account.AccessLevel <= AccessLevel.None) {
             ns.LogDebug("Access Denied");
             ns.Send(new LoginResponsePacket(LoginState.NoAccess));
             ns.Disconnect();
