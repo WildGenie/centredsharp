@@ -120,7 +120,6 @@ public sealed partial class Landscape : BaseLandscape {
 
     public TileDataProvider TileDataProvider { get; } = null!;
     private RadarMap _radarMap = null!;
-    private BlockCache _blockCache = null!;
 
     private void OnRemovedCachedObject(Block block) {
         if (block.LandBlock.Changed)
@@ -182,7 +181,7 @@ public sealed partial class Landscape : BaseLandscape {
         var statics = new StaticBlock(_staticsReader, index, x, y);
 
         var result = new Block(map, statics);
-        _blockCache.Add(result);
+        BlockCache.Add(result);
         return result;
     }
 
@@ -242,7 +241,7 @@ public sealed partial class Landscape : BaseLandscape {
     }
     
     public void Flush() {
-        _blockCache.Clear();
+        BlockCache.Clear(); //fixme?
         _map.Flush();
         _staidx.Flush();
         _statics.Flush();
