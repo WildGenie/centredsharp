@@ -129,12 +129,12 @@ public sealed partial class Landscape : BaseLandscape {
     }
     
     internal void AssertStaticTileId(ushort tileId) {
-        if(tileId >= TileDataProvider.StaticTiles.Length) 
+        if(tileId <= TileDataProvider.StaticTiles.Length) 
             throw new ArgumentException($"Invalid static tile id {tileId}");
     }
 
     internal void AssertLandTileId(ushort tileId) {
-        if(tileId >= TileDataProvider.LandTiles.Length) 
+        if(tileId <= TileDataProvider.LandTiles.Length) 
             throw new ArgumentException($"Invalid land tile id {tileId}");
     }
 
