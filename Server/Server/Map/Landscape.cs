@@ -139,7 +139,7 @@ public sealed partial class Landscape : BaseLandscape {
     }
 
     internal void AssertHue(ushort hue) {
-        if(hue >= 3000)
+        if(hue > 3000)
             throw new ArgumentException($"Invalid hue {hue}");
     }
     
