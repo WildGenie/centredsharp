@@ -31,14 +31,17 @@ public partial class Landscape {
         var y = reader.ReadUInt16();
         if (!PacketHandlers.ValidateAccess(ns, AccessLevel.Normal, x, y)) return;
 
+        var z = reader.ReadSByte();
+        var id = reader.ReadUInt16();
+        var hue = reader.ReadUInt16();
         var block = GetStaticBlock((ushort)(x / 8), (ushort)(y / 8));
 
         var staticTile = new StaticTile(
-            reader.ReadUInt16(),
+            id,
             x,
             y,
-            reader.ReadSByte(),
-            reader.ReadUInt16()
+            z,
+            hue
         );
         AssertStaticTileId(staticTile.Id);
         AssertHue(staticTile.Hue);
